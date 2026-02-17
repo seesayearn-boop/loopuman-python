@@ -1,0 +1,49 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "loopuman"
+version = "0.1.0"
+description = "The Human Layer for AI — route tasks to real verified humans worldwide"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.8"
+authors = [
+    {name = "Loopuman", email = "hello@loopuman.com"},
+]
+keywords = [
+    "ai", "agents", "human-in-the-loop", "microtasks", "langchain",
+    "crewai", "autogen", "mcp", "captcha", "verification", "rlhf",
+    "data-labeling", "content-moderation", "celo", "blockchain",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "requests>=2.20.0",
+]
+
+[project.optional-dependencies]
+langchain = ["langchain-core>=0.1.0"]
+crewai = ["crewai>=0.1.0"]
+all = ["langchain-core>=0.1.0", "crewai>=0.1.0"]
+
+[project.urls]
+Homepage = "https://loopuman.com"
+Documentation = "https://loopuman.com/docs"
+Repository = "https://github.com/seesayearn-boop/loopuman-python"
+Issues = "https://github.com/seesayearn-boop/loopuman-python/issues"
+
+[tool.setuptools.packages.find]
+include = ["loopuman*"]
