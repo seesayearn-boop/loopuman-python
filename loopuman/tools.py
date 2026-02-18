@@ -12,6 +12,7 @@ def ask_human(
     question: str,
     category: str = "other",
     budget_vae: int = 50,
+    estimated_seconds: int = 120,
     api_key: str = None,
 ) -> str:
     """
@@ -22,11 +23,12 @@ def ask_human(
     Args:
         question: What the human should do (be specific)
         category: writing, research, data, survey, image, local, translation, audio, other
-        budget_vae: Cost in VAE (100 VAE = $1.00 USD). Minimum 50.
+        budget_vae: Cost in VAE (100 VAE = $1.00 USD). Minimum 10.
+        estimated_seconds: Expected time for worker to complete (required — enforces $6/hr min rate)
         api_key: Optional, reads LOOPUMAN_API_KEY from env if not set
     """
     client = Loopuman(api_key=api_key)
-    return client.ask(question, category=category, budget_vae=budget_vae)
+    return client.ask(question, category=category, budget_vae=budget_vae, estimated_seconds=estimated_seconds)
 
 
 # ── LangChain Tool ─────────────────────────────────────────
@@ -66,10 +68,10 @@ def langchain_tool(api_key: str = None):
         
         Input: A clear, specific description of what the human should do.
         Output: The human's response (typically within 5-15 minutes).
-        Cost: $0.50-$2.00 depending on complexity.
+        Cost: $0.10-$2.00 depending on complexity.
         """
         try:
-            return client.ask(task_description, budget_vae=50)
+            return client.ask(task_description, budget_vae=50, estimated_seconds=120)
         except LoopumanError as e:
             return f"Human task failed: {e}"
 
@@ -100,9 +102,9 @@ def crewai_tool(api_key: str = None):
         Use for CAPTCHAs, phone calls, physical actions, subjective judgment,
         content moderation, translation review, data labeling, or RLHF evaluation.
         Provide a clear, specific description. Human responds in 5-15 minutes.
-        Cost: $0.50-$2.00 per task."""
+        Cost: $0.10-$2.00 per task."""
         try:
-            return client.ask(task_description, budget_vae=50)
+            return client.ask(task_description, budget_vae=50, estimated_seconds=120)
         except LoopumanError as e:
             return f"Human task failed: {e}"
 
@@ -124,10 +126,10 @@ def autogen_function_map(api_key: str = None) -> dict:
     """
     client = Loopuman(api_key=api_key)
 
-    def ask_human_worker(task_description: str, category: str = "other", budget_vae: int = 50) -> str:
+    def ask_human_worker(task_description: str, category: str = "other", budget_vae: int = 50, estimated_seconds: int = 120) -> str:
         """Route a task to a real human worker."""
         try:
-            return client.ask(task_description, category=category, budget_vae=budget_vae)
+            return client.ask(task_description, category=category, budget_vae=budget_vae, estimated_seconds=estimated_seconds)
         except LoopumanError as e:
             return f"Human task failed: {e}"
 
@@ -143,7 +145,7 @@ OPENAI_FUNCTION_SCHEMA = {
         "Use for CAPTCHAs, phone calls, SMS verification, physical world actions, "
         "subjective judgment, content moderation, translation review, data labeling, "
         "RLHF evaluation, or any task requiring a real person. "
-        "Human typically responds within 5-15 minutes. Cost: $0.50-$2.00."
+        "Human typically responds within 5-15 minutes. Cost: $0.10-$2.00."
     ),
     "parameters": {
         "type": "object",
@@ -162,10 +164,15 @@ OPENAI_FUNCTION_SCHEMA = {
             },
             "budget_vae": {
                 "type": "integer",
-                "description": "Budget in VAE (100 VAE = $1.00 USD). Minimum 50.",
+                "description": "Budget in VAE (100 VAE = $1.00 USD). Minimum 10.",
                 "default": 50,
             },
+            "estimated_seconds": {
+                "type": "integer",
+                "description": "Expected time in seconds for worker to complete. Platform enforces $6/hr minimum rate.",
+                "default": 120,
+            },
         },
-        "required": ["task_description"],
+        "required": ["task_description", "estimated_seconds"],
     },
 }

@@ -17,7 +17,7 @@ BASE_URL = "https://api.loopuman.com/api/v1"
 
 
 class TaskStatus(str, Enum):
-    OPEN = "open"
+    ACTIVE = "active"
     CLAIMED = "claimed"
     SUBMITTED = "submitted"
     COMPLETED = "completed"
@@ -49,6 +49,7 @@ class Task:
     category: Optional[str] = None
     budget: Optional[int] = None
     result: Optional[str] = None
+    submissions: Optional[List[Dict]] = None
     worker_id: Optional[str] = None
     created_at: Optional[str] = None
     completed_at: Optional[str] = None
@@ -56,14 +57,22 @@ class Task:
 
     @classmethod
     def from_dict(cls, data: dict) -> "Task":
+        # API returns task_id at top level, not nested under .task
+        task_id = data.get("task_id", data.get("id", ""))
+        submissions = data.get("submissions", [])
+        # Extract result from first approved/pending submission
+        result = None
+        if submissions:
+            result = submissions[0].get("content", submissions[0].get("text"))
         return cls(
-            id=data.get("id", ""),
+            id=task_id,
             status=data.get("status", ""),
             title=data.get("title"),
             description=data.get("description"),
             category=data.get("category"),
-            budget=data.get("budget"),
-            result=data.get("result"),
+            budget=data.get("budget_vae", data.get("budget")),
+            result=result,
+            submissions=submissions,
             worker_id=data.get("worker_id"),
             created_at=data.get("created_at"),
             completed_at=data.get("completed_at"),
@@ -76,7 +85,7 @@ class Task:
 
     @property
     def is_pending(self) -> bool:
-        return self.status in ("open", "claimed", "submitted")
+        return self.status in ("active", "claimed", "submitted")
 
     @property
     def budget_usd(self) -> Optional[float]:
@@ -115,7 +124,8 @@ class Loopuman:
             title="Verify business",
             description="Call +254... and ask if they deliver",
             category="local",
-            budget_vae=100  # 100 VAE = $1.00
+            budget_vae=100,  # 100 VAE = $1.00
+            estimated_seconds=300,  # ~5 min task
         )
         task = client.wait(task.id)
         print(task.result)
@@ -175,6 +185,7 @@ class Loopuman:
         title: Optional[str] = None,
         category: str = "other",
         budget_vae: int = 50,
+        estimated_seconds: int = 120,
         priority: str = "normal",
         max_workers: int = 1,
         **extra_fields,
@@ -186,7 +197,8 @@ class Loopuman:
             description: What the human should do (be specific!)
             title: Short title (auto-generated from description if omitted)
             category: Task category — writing, research, data, survey, image, local, translation, audio, other
-            budget_vae: Amount in VAE (100 VAE = $1.00 USD). Minimum 50.
+            budget_vae: Amount in VAE (100 VAE = $1.00 USD). Minimum 10.
+            estimated_seconds: Expected time for worker to complete (required — enforces $6/hr min rate)
             priority: "normal" or "high" (high = workers see it first)
             max_workers: Number of workers 1-5 (use 2+ for competition mode)
             **extra_fields: Any additional fields your API supports
@@ -197,7 +209,8 @@ class Loopuman:
         payload = {
             "description": description,
             "category": category,
-            "budget_vae": max(budget_vae, 50),
+            "budget_vae": max(budget_vae, 10),
+            "estimated_seconds": estimated_seconds,
             "priority": priority,
             "max_workers": max_workers,
             **extra_fields,
@@ -214,6 +227,7 @@ class Loopuman:
         title: Optional[str] = None,
         category: str = "other",
         budget_vae: int = 50,
+        estimated_seconds: int = 120,
         priority: str = "high",
         timeout: int = 300,
         **extra_fields,
@@ -226,7 +240,8 @@ class Loopuman:
         payload = {
             "description": description,
             "category": category,
-            "budget_vae": max(budget_vae, 50),
+            "budget_vae": max(budget_vae, 10),
+            "estimated_seconds": estimated_seconds,
             "priority": priority,
             **extra_fields,
         }
@@ -279,6 +294,7 @@ class Loopuman:
         question: str,
         category: str = "other",
         budget_vae: int = 50,
+        estimated_seconds: int = 120,
         max_wait: int = 900,
     ) -> str:
         """
@@ -287,7 +303,8 @@ class Loopuman:
         Args:
             question: What to ask (be specific)
             category: Task category
-            budget_vae: VAE amount (100 = $1.00). Minimum 50.
+            budget_vae: VAE amount (100 = $1.00). Minimum 10.
+            estimated_seconds: Expected time for worker (default 2 min)
             max_wait: Max seconds to wait (default 15 min)
             
         Returns:
@@ -297,6 +314,7 @@ class Loopuman:
             description=question,
             category=category,
             budget_vae=budget_vae,
+            estimated_seconds=estimated_seconds,
             priority="high",
         )
         completed = self.wait(task.id, max_wait=max_wait)
